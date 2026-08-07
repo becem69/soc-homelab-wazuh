@@ -1,0 +1,86 @@
+#!/usr/sbin/nft -f
+# ============================================================
+# SOC Lab Firewall - Host-level nftables rules
+# Applied to the DOCKER-USER chain which Docker leaves empty
+# for user-defined firewall rules.
+#
+# Topology (single-node_default bridge: br-26b6c893bcfb):
+#   victim1         172.18.0.6  - attacker/lab machine
+#   juice-shop      172.18.0.5  - target web app (port 3000)
+#   wazuh.manager   172.18.0.4  - SIEM manager
+#   wazuh.dashboard 172.18.0.3  - SIEM dashboard (HTTPS 443)
+#   wazuh.indexer   172.18.0.2  - SIEM indexer
+#
+# POLICY:
+#   victim1 -> juice-shop:3000        ALLOW
+#   victim1 -> wazuh manager:1514     ALLOW (agent comms)
+#   victim1 -> wazuh manager:1515     ALLOW (agent enrollment)
+#   victim1 -> any other SOC host     BLOCK + LOG
+#   SOC internal traffic              ALLOW
+# ============================================================
+
+# Flush and recreate our table cleanly (safe: does not touch Docker tables)
+table ip soc_rules {}
+delete table ip soc_rules
+
+# Add rules into Docker's user-defined chain
+# This file is designed to be applied with: nft -f <this file>
+# It flushes only our soc_rules table - does NOT touch Docker's chains
+
+table ip soc_rules {
+
+    # ----------------------------------------------------------
+    # Counters
+    # ----------------------------------------------------------
+    counter victim_to_juiceshop { comment "victim1 -> juice-shop HTTP allowed" }
+    counter victim_to_wazuh_agent { comment "victim1 -> wazuh agent ports allowed" }
+    counter victim_blocked { comment "victim1 lateral movement blocked" }
+    counter soc_internal { comment "wazuh internal traffic allowed" }
+
+    # ----------------------------------------------------------
+    # SOC forward chain - hooked at priority -1 (before Docker)
+    # This processes all bridged container-to-container traffic
+    # ----------------------------------------------------------
+    chain soc_forward {
+        type filter hook forward priority -1; policy accept;
+
+        # Allow established/related first (performance)
+        ct state established,related return
+        ct state invalid drop
+
+        # --- victim1 outbound rules ---
+
+        # ALLOW: victim1 -> juice-shop HTTP
+        ip saddr 172.18.0.6 ip daddr 172.18.0.5 tcp dport 3000 \
+            counter name victim_to_juiceshop return
+
+        # ALLOW: victim1 -> wazuh manager agent ports
+        ip saddr 172.18.0.6 ip daddr 172.18.0.4 tcp dport { 1514, 1515 } \
+            counter name victim_to_wazuh_agent return
+
+        # BLOCK: victim1 -> any other SOC infrastructure
+        ip saddr 172.18.0.6 ip daddr { 172.18.0.2, 172.18.0.3, 172.18.0.4, 172.18.0.5 } \
+            counter name victim_blocked \
+            log prefix "SOC-FW-BLOCK: " flags all \
+            drop
+
+        # --- Wazuh internal SOC traffic (all allowed) ---
+        # manager <-> indexer
+        ip saddr 172.18.0.4 ip daddr 172.18.0.2 \
+            counter name soc_internal return
+        ip saddr 172.18.0.2 ip daddr 172.18.0.4 \
+            counter name soc_internal return
+        # dashboard <-> manager
+        ip saddr 172.18.0.3 ip daddr 172.18.0.4 \
+            counter name soc_internal return
+        ip saddr 172.18.0.4 ip daddr 172.18.0.3 \
+            counter name soc_internal return
+        # dashboard <-> indexer
+        ip saddr 172.18.0.3 ip daddr 172.18.0.2 \
+            counter name soc_internal return
+        ip saddr 172.18.0.2 ip daddr 172.18.0.3 \
+            counter name soc_internal return
+
+        # All other traffic: pass through (Docker handles it)
+    }
+}

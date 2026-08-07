@@ -1,0 +1,18 @@
+[Unit]
+Description=SOC Lab nftables Firewall
+Documentation=file:///home/becem69/wazuh-docker/single-node/config/firewall/soc-firewall-host.nft
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Apply the SOC firewall rules
+ExecStart=/usr/sbin/nft -f /home/becem69/wazuh-docker/single-node/config/firewall/soc-firewall-host.nft
+# Flush only our table on stop
+ExecStop=/usr/sbin/nft delete table ip soc_rules
+# Reload support
+ExecReload=/usr/sbin/nft -f /home/becem69/wazuh-docker/single-node/config/firewall/soc-firewall-host.nft
+
+[Install]
+WantedBy=multi-user.target

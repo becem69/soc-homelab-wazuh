@@ -1,0 +1,75 @@
+# ============================================
+# Wazuh Docker - SOC Home Lab .gitignore
+# ============================================
+
+# SSL/TLS Certificates (auto-generated)
+single-node/config/wazuh_indexer_ssl_certs/
+multi-node/config/wazuh_indexer_ssl_certs/
+indexer-certs-creator/config/*.pem
+indexer-certs-creator/config/*.key
+indexer-certs-creator/config/*.csr
+**/*.pem
+**/*.key
+**/*.crt
+**/*.p12
+**/*.jks
+
+# Environment files (may contain secrets, API keys, passwords)
+.env
+.env.local
+.env.*.local
+**/.env
+
+# Wazuh / Docker runtime data & volumes
+**/volumes/
+**/data/
+**/logs/
+**/queue/
+**/var/
+**/stats/
+**/api/configuration/
+single-node/config/wazuh_cluster/*.state
+single-node/config/wazuh_cluster/*.log
+multi-node/config/wazuh_cluster/*.state
+multi-node/config/wazuh_cluster/*.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+._*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# Python cache (from create_user.py and scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Shell script backups
+*.sh~
+*.bak
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Build artifacts
+build/
+dist/
+*.tar.gz
+*.zip
+
+# Temporary files
+tmp/
+temp/
+*.tmp
