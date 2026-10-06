@@ -234,7 +234,7 @@ I added an `<integration>` block to the **manager's** `ossec.conf` (not the agen
 ```xml
 <integration>
   <name>virustotal</name>
-  <api_key>YOUR_API_KEY_HERE</api_key>
+  <api_key>VIRUSTOTAL_API_KEY_HERE</api_key>
   <group>syscheck</group>
   <alert_format>json</alert_format>
 </integration>
